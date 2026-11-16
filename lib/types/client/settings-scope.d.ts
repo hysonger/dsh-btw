@@ -40,6 +40,7 @@ export interface BtwSettingsScope {
     setMany(pairs: readonly (readonly [string, unknown])[]): Promise<boolean | undefined>;
     /** 当前是否已经绑定了宿主真正在服务的命名空间。 */
     bound(): boolean;
+    dispose(): void;
 }
 /** 插件包名；行级配置 key 的前半段。 */
 export declare const BUNDLE_NAME = "@michengai/dsh-btw";

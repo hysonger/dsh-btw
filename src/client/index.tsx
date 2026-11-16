@@ -20,7 +20,7 @@ import { CSS } from './styles'
 import { createQuoteTriggerSource } from './trigger-source'
 import { quoteUserTextRule, QuoteUserTextNode } from './user-quote-chip'
 import { createOfficialQuoteRule, OfficialQuotePreview, safeRegisterUserTextRule } from './official-quote'
-import { NativeBtwAskAction, safeRegisterInteraction } from './NativeBtwAsk'
+import { NativeBtwAskAction, safeRegisterInteraction, hasAskHandler } from './NativeBtwAsk'
 import { LOCALE_DICTIONARIES, normalizeLocale, NS, type BtwTranslate } from '../locales'
 import { BtwSettingsCard, type BtwSettingsFace } from './SettingsCard'
 import { createSettingsScope, BUNDLE_NAME, ROW_CONFIG_KEY, type BtwSettingsScope, type HostConfigForms } from './settings-scope'
@@ -123,6 +123,7 @@ export function apply(ctx: Context): void {
   // 普通分叉也有父会话；只使用宿主明确给出的子代理身份，不按 parentId 猜测。
   const isSubagent = (id: string): boolean => Boolean(sessions.subagentAddress?.(id as SessionId)) || sessions.list?.getSnapshot().byId[id as SessionId]?.origin === 'subagent'
   const execute = async (session: string, line: string, signal?: AbortSignal): Promise<SideResult> => {
+    if (isSubagent(session)) throw new SideRequestNotStartedError(t('error.subagent'))
     const response = await remote.commands.execute(session as SessionId, line, [], signal)
     if (!response.ok) {
       const failure = response.error
@@ -226,7 +227,7 @@ export function apply(ctx: Context): void {
         id: 'michengai-btw',
         onInteraction(request: any) {
           if (request.trigger !== 'selection' || request.readText() === null) return
-          if (isSubagent(request.sessionId)) return
+          if (isSubagent(request.sessionId) || !hasAskHandler(request.sessionId)) return
           request.open()
         },
       })
@@ -276,6 +277,7 @@ export function apply(ctx: Context): void {
           <SelectionAsk
             key={props.session.sessionId}
             store={store}
+            nativeSelection={typeof (ctx.get('uiConversation') as { interactions?: { register?: unknown } } | undefined)?.interactions?.register === 'function'}
             sessionId={props.session.sessionId}
             t={props.t}
             input={session ? ctx.conversation.input.for(session) : undefined}
@@ -291,7 +293,7 @@ export function apply(ctx: Context): void {
       try {
         return (slots.register as any)({
           name: 'conversation.chat.text-interaction',
-          key: 'btw',
+          key: 'michengai-btw',
           locale: NS,
           order: 10,
         }, NativeBtwAskAction as any)
@@ -337,6 +339,7 @@ export function apply(ctx: Context): void {
     const forms = scope.get('configForms') as HostConfigForms | undefined
     if (!forms) return
     const settingsScope: BtwSettingsScope = createSettingsScope(forms)
+    scope.effect(() => () => settingsScope.dispose())
     const face: BtwSettingsFace = { scope: settingsScope }
     // 这两个槽的 SlotMap 契约由宿主 plugin-manager 包声明，btw 不依赖它，
     // 因此按结构化形状注册：宿主有该槽时才渲染，没有时 register 只是空转。

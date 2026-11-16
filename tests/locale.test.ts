@@ -77,10 +77,17 @@ describe('全量 8 门官方语言支持与一致性断言', () => {
       const t = translate(lang)
       expect(t('settings.invalidTools', { max: 120 })).toContain('120')
       expect(t('agent.toolsAllowed', { tools: 'pele_draw' })).toContain('pele_draw')
-      expect(t('agent.replyHint', { field: 'agent', parent: 'sess-123' })).toContain('agent')
-      expect(t('agent.replyHint', { field: 'agent', parent: 'sess-123' })).toContain('sess-123')
-      expect(t('agent.replyHint', { field: 'agent_id', parent: 'sess-123' })).toContain('agent_id')
       expect(t('agent.promptPrefix')).not.toContain('agent_id')
+    }
+  })
+
+  it('内置旁问提示词在所有语言中都声明回传通道关闭（send_message 执行期被拒）', () => {
+    for (const lang of Object.keys(allLocales) as BtwLocale[]) {
+      const t = translate(lang)
+      expect(t('agent.promptPrefix'), `${lang} 提示词必须提及 send_message 被拒`).toContain('send_message')
+      // 提示词不得携带任何回传参数/父会话占位符。
+      expect(t('agent.promptPrefix')).not.toContain('{parent}')
+      expect(t('agent.promptPrefix')).not.toContain('{field}')
     }
   })
 
@@ -124,11 +131,12 @@ describe('全量 8 门官方语言支持与一致性断言', () => {
       expect(fs.existsSync(jsonPath), `locale/${lang}.json 必须存在`).toBe(true)
       const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
       expect(data.meta).toBeDefined()
-      expect(data.meta.title).toBe('BTW')
+      // 加固 fork 的展示标题（root 在 locale/*.json 中统一改写）。
+      expect(data.meta.title).toBe(lang === 'zh' ? '旁问（加固版）' : 'BTW (hardened)')
       expect(typeof data.meta.description).toBe('string')
       expect(data.meta.description.length).toBeGreaterThan(0)
-      const expectedDetail = lang === 'zh' ? 'README.zh-CN.md' : `README.${lang}.md`
-      expect(data.meta.detail).toBe(expectedDetail)
+      // 加固 fork 的详情文档统一指向 HARDENING.md。
+      expect(data.meta.detail).toBe('HARDENING.md')
       expect(fs.existsSync(path.resolve(rootDir, data.meta.detail)), `${data.meta.detail} 文件必须存在`).toBe(true)
     }
   })

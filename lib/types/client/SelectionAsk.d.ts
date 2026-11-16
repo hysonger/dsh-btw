@@ -25,5 +25,6 @@ export declare function SelectionAsk(props: {
     sessionId: string;
     t: BtwTranslate;
     input?: DraftInput;
+    nativeSelection?: boolean;
 }): React.JSX.Element;
 export {};

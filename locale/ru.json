@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "BTW",
-    "description": "Отвечает на основе текущего контекста в отдельном пузыре, без выполнения инструментов.",
-    "detail": "README.ru.md"
+    "title": "BTW (hardened)",
+    "description": "Personal hardened fork: tools denied by default, no model-initiated parent messages, no rendered images or HTML.",
+    "detail": "HARDENING.md"
   }
 }

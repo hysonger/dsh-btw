@@ -69,8 +69,8 @@ it('划词横条到快捷解释固定引用，发送至原会话并以折叠引�
   scope.querySelector('p')!.textContent = '流式更新'
   await click('旁问')
   expect(document.activeElement?.tagName).toBe('TEXTAREA')
-  expect(mount.querySelector<HTMLElement>('dialog, .btw-selection-menu')!.style.left).toBe('')
-  expect(mount.querySelector<HTMLElement>('dialog, .btw-selection-menu')!.style.top).toBe('')
+  expect(mount.querySelector<HTMLElement>('[role=dialog], .btw-selection-menu')!.style.left).toBe('')
+  expect(mount.querySelector<HTMLElement>('[role=dialog], .btw-selection-menu')!.style.top).toBe('')
   await click('解释一下')
   expect(run).toHaveBeenCalledWith('session-a', expect.any(String), '解释一下', expect.any(AbortSignal), '引用中的原始正文')
   expect(mount.querySelector<HTMLElement>('dialog, .btw-selection-menu')).toBeNull()
@@ -146,6 +146,7 @@ it('添加引用不发送，右键保持原生，侧边栏选区不触发正文�
   await open()
   await click('引用文本')
   expect(run).not.toHaveBeenCalled()
+  await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
   expect(mount.querySelector<HTMLElement>('dialog, .btw-selection-menu')).toBeNull()
   const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
   scope.querySelector('p')!.dispatchEvent(event)
@@ -211,6 +212,7 @@ it('划选添加引用成功后自动聚焦宿主输入框（Issue #18 回归）
   const mockInput = {
     state: { getSnapshot: () => ({ draft: '', phase: 'plain' }) },
     setDraft: vi.fn(),
+    insertQuote: vi.fn(() => true),
     focus,
   }
   await act(async () => root.render(React.createElement(React.Fragment, null,
@@ -219,7 +221,8 @@ it('划选添加引用成功后自动聚焦宿主输入框（Issue #18 回归）
 
   await open()
   await click('引用文本')
-  expect(mockInput.setDraft).toHaveBeenCalledWith('> 引用中的原始正文\n\n')
+  expect(mockInput.setDraft).not.toHaveBeenCalled()
+  expect(mockInput.insertQuote).toHaveBeenCalled()
   expect(focus).toHaveBeenCalledTimes(1)
 
   // 连续引用第二条同样保持聚焦输入框
@@ -279,7 +282,7 @@ it('在老版本宿主（无 insertQuote 但提供 insertReference）时，点�
   expect(focus).toHaveBeenCalledTimes(1)
 })
 
-it('在纯文本输入框环境时，点击「引用文本」以 Markdown blockquote 追加带入草稿', async () => {
+it('无结构化插入时保留原草稿，不通过 setDraft 降级', async () => {
   const focus = vi.fn()
   const mockInput = {
     state: { getSnapshot: () => ({ draft: '既有用户草稿', draftRev: 1, phase: 'plain' }) },
@@ -293,7 +296,16 @@ it('在纯文本输入框环境时，点击「引用文本」以 Markdown blockq
   await open()
   await click('引用文本')
 
-  expect(mockInput.setDraft).toHaveBeenCalledWith('既有用户草稿\n\n> 引用中的原始正文\n\n')
-  expect(focus).toHaveBeenCalledTimes(1)
+  expect(mockInput.setDraft).not.toHaveBeenCalled()
+  expect(focus).not.toHaveBeenCalled()
 })
 
+
+it('锁定阶段拒绝引用插入且不改写草稿', async () => {
+  const input = { state: { getSnapshot: () => ({ draft: '用户草稿', draftRev: 5, phase: 'submitting' }) }, setDraft: vi.fn(), insertQuote: vi.fn(() => false), insertReference: vi.fn(() => true) }
+  await act(async () => root.render(React.createElement(SelectionAsk, { store, sessionId: 'session-a', t: translate(), input })))
+  await open(); await click('引用文本')
+  expect(input.setDraft).not.toHaveBeenCalled()
+  expect(input.insertQuote).not.toHaveBeenCalled()
+  expect(input.insertReference).not.toHaveBeenCalled()
+})

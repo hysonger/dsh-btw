@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "BTW",
-    "description": "基于当前上下文回答，独立气泡，不执行工具。",
-    "detail": "README.zh-CN.md"
+    "title": "旁问（加固版）",
+    "description": "个人加固版：默认禁用全部工具，模型不能回传主会话，回答不加载图片或 HTML。",
+    "detail": "HARDENING.md"
   }
 }

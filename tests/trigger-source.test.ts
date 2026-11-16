@@ -62,7 +62,7 @@ describe('trigger-source 结构化引用通道 (Issue #12)', () => {
     expect(modelPrompt).not.toContain('严禁调用工具')
   })
 
-  it('openReference 调用时触发锚点高亮跳转', () => {
+  it('openReference 缺少会话 scope 时拒绝全局跳转', () => {
     const source = createQuoteTriggerSource({ quoteStore, t })
     const div = document.createElement('div')
     document.body.append(div)
@@ -77,7 +77,7 @@ describe('trigger-source 结构化引用通道 (Issue #12)', () => {
       { sessionId: 's1' as any },
       { ref: serializeQuoteRef(q), appearance: 'file' }
     )
-    expect(handled).toBe(true)
+    expect(handled).toBe(false)
     div.remove()
   })
 

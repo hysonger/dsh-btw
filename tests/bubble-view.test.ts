@@ -43,7 +43,8 @@ it('实际 Markdown 渲染拒绝 HTML、脚本链接和远程图片，并保护�
   expect(container.querySelector('script')).toBeNull()
   expect(container.textContent).not.toContain('window.compromised')
   expect(container.querySelector('img')).toBeNull()
-  expect(container.textContent).toContain('图片说明')
+  // Hardened renderer drops the entire image node rather than regex-rewriting it into alt text.
+  expect(container.textContent).not.toContain('图片说明')
   const links = [...container.querySelectorAll('a')]
   expect(links[0]?.href).toBe('https://example.com/')
   expect(links[0]?.target).toBe('_blank')

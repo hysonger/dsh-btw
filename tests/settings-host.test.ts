@@ -92,6 +92,13 @@ const harness = async (config: unknown, probes: readonly Probe[]): Promise<Harne
     output: { schema: { type: 'string' }, render: value => [{ type: 'text', text: String(value) }] },
     execute,
   })
+  ctx.tools.register({
+    name: 'send_message',
+    description: '发消息给另一个 agent',
+    parameters: { type: 'object', properties: { agent: { type: 'string' }, message: { type: 'string' } }, required: ['agent', 'message'] },
+    output: { schema: { type: 'string' }, render: value => [{ type: 'text', text: String(value) }] },
+    execute,
+  })
   const prompts: string[] = []
   const calls: CallResult[] = []
   const run = async (probe: Probe, agent?: object) => {
@@ -106,8 +113,8 @@ const harness = async (config: unknown, probes: readonly Probe[]): Promise<Harne
   }
   ctx.provide('subagents', {
     getProvider: () => ({ inheritsParentContext: true, capabilities: { agentOptions: true } }),
-    startActivation: async (spec: { childId?: string; request: { prompt: readonly { type: string; text: string }[] } }) => {
-      prompts.push(spec.request.prompt.map(block => block.text).join(''))
+    startActivation: async (spec: { childId?: string; prompt: readonly { type: string; text: string }[] }) => {
+      prompts.push(spec.prompt.map(block => block.text).join(''))
       // 子代理运行中：此刻 childId 已被预登记，闸门会介入。
       for (const probe of probes) {
         if (probe.when === 'child') await run(probe, { id: spec.childId })
@@ -150,7 +157,7 @@ describe(`DSH ${runtimeVersion} 旁问设置项接线`, () => {
     expect(h.calls[0]!.isError).toBe(true)
     expect(h.calls[0]!.content).toContain('BTW 仅允许文字回答，禁止执行任何工具。')
     expect(h.execute).not.toHaveBeenCalled()
-    expect(h.prompts[0]).toContain('除 send_message 之外任何工具调用都会被拒绝')
+    expect(h.prompts[0]).toContain('所有工具调用（包括 send_message）都会被拒绝执行')
     expect(h.prompts[0]).not.toContain('白名单')
     await h.dispose()
   })
@@ -163,7 +170,7 @@ describe(`DSH ${runtimeVersion} 旁问设置项接线`, () => {
     // 权限说明始终追加，配置不能让「能调什么」的边界从提示词里消失。
     expect(h.prompts[0]).toContain('pele_draw')
     expect(h.prompts[0]).toContain('额外放行这些工具')
-    expect(h.prompts[0]).toContain('除 send_message 之外任何工具调用都会被拒绝')
+    expect(h.prompts[0]).toContain('所有工具调用（包括 send_message）都会被拒绝执行')
     await h.dispose()
   })
 
@@ -171,7 +178,7 @@ describe(`DSH ${runtimeVersion} 旁问设置项接线`, () => {
     const h = await harness({ allowedTools: ['pele_draw'], promptPrefix: '只给结论与依据。' }, [childProbe])
     expect(await h.ask('自定义前缀')).toMatchObject({ kind: 'success' })
     expect(h.prompts[0]!.startsWith('只给结论与依据。')).toBe(true)
-    expect(h.prompts[0]).not.toContain('除 send_message 之外任何工具调用都会被拒绝')
+    expect(h.prompts[0]).not.toContain('所有工具调用（包括 send_message）都会被拒绝执行')
     expect(h.prompts[0]).toContain('pele_draw')
     expect(h.prompts[0]).toContain('自定义前缀')
     await h.dispose()
@@ -200,6 +207,28 @@ describe(`DSH ${runtimeVersion} 旁问设置项接线`, () => {
     expect(await h.ask('主任务')).toMatchObject({ kind: 'success' })
     expect(h.calls[0]!.isError).not.toBe(true)
     expect(h.execute).toHaveBeenCalledOnce()
+    await h.dispose()
+  })
+
+  it('F-02 加固：白名单放开普通工具时，send_message 回传仍被一律拒绝', async () => {
+    const h = await harness({ allowedTools: ['pele_draw', 'send_message'] }, [
+      { name: 'pele_draw', when: 'child' },
+      { name: 'send_message', args: { agent: 'main', message: '回传' }, when: 'child' },
+      { name: 'send_message', args: { agent: 'other', message: '越权' }, when: 'child' },
+    ])
+    expect(await h.ask('回传加固')).toMatchObject({ kind: 'success' })
+    expect(h.calls).toHaveLength(3)
+    // 普通白名单工具按配置放行……
+    expect(h.calls[0]!.isError).not.toBe(true)
+    // ……但 send_message 无论目标是父会话还是其它 agent 都被拒，且从未执行。
+    expect(h.calls[1]!.isError).toBe(true)
+    expect(h.calls[1]!.content).toContain('BTW 禁止向主会话或任何其它代理回传消息')
+    expect(h.calls[2]!.isError).toBe(true)
+    expect(h.calls[2]!.content).toContain('BTW 禁止向主会话或任何其它代理回传消息')
+    expect(h.execute).toHaveBeenCalledTimes(1)
+    // send_message 被配置层过滤，提示词里的放行名单不提它。
+    expect(h.prompts[0]).toContain('pele_draw')
+    expect(h.prompts[0]).not.toContain('send_message、')
     await h.dispose()
   })
 })

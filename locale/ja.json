@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "BTW",
-    "description": "現在のコンテキストに基づいて回答し、独立したバブルでツールは実行しません。",
-    "detail": "README.ja.md"
+    "title": "BTW (hardened)",
+    "description": "Personal hardened fork: tools denied by default, no model-initiated parent messages, no rendered images or HTML.",
+    "detail": "HARDENING.md"
   }
 }

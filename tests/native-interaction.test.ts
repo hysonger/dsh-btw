@@ -6,7 +6,6 @@ import {
   NativeBtwAskAction,
   registerAskHandler,
   triggerAskModal,
-  attachNativeAskButton,
 } from '../src/client/NativeBtwAsk'
 import { SelectionAsk } from '../src/client/SelectionAsk'
 import { BubbleStore } from '../src/client/bubbles'
@@ -63,7 +62,7 @@ describe('NativeBtwAsk 适配官方选区交互规范与插槽', () => {
       )
     })
 
-    const button = container.querySelector('button')!
+    const button = [...container.querySelectorAll('button')].find(item => item.textContent === '旁问')!
     expect(button).not.toBeNull()
     expect(button.textContent).toBe('旁问')
 
@@ -86,12 +85,14 @@ describe('NativeBtwAsk 适配官方选区交互规范与插槽', () => {
     scope.innerHTML = '<div data-chat-flow-kind="assistant-step"><p>正文内容</p></div>'
     document.body.append(scope)
 
+    scope.append(container)
     const root = createRoot(container)
     await act(async () => {
       root.render(
         React.createElement(SelectionAsk, {
           store,
           sessionId: 'session-native',
+          nativeSelection: true,
           t: translate('zh'),
         })
       )
@@ -123,60 +124,31 @@ describe('NativeBtwAsk 适配官方选区交互规范与插槽', () => {
     scope.remove()
   })
 
-  it('attachNativeAskButton 向官方 [data-text-interaction-surface] 自动追加「旁问」按钮并支持点击提问', async () => {
-    const scope = document.createElement('div')
-    scope.setAttribute('data-conversation-scroll', '')
-    scope.innerHTML = '<div data-chat-flow-kind="assistant-step"><p>待旁问的片段</p></div>'
-    document.body.append(scope)
+  it('quotes via inputActions and preserves selection on failure', async () => {
+    const dismiss = vi.fn(), clearSelection = vi.fn(), insertQuote = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const root = createRoot(container)
+    await act(async () => root.render(React.createElement(NativeBtwAskAction, { sessionId: 'a', dismiss, clearSelection, readText: () => 'quoted', inputActions: { insertQuote }, t: translate('zh') })))
+    const button = [...container.querySelectorAll('button')].find(item => item.textContent === '引用文本')!
+    await act(async () => button.click())
+    expect(clearSelection).not.toHaveBeenCalled()
+    expect(dismiss).not.toHaveBeenCalled()
+    await act(async () => button.click())
+    expect(insertQuote).toHaveBeenCalledWith('quoted')
+    expect(clearSelection).toHaveBeenCalledTimes(1)
+    expect(dismiss).toHaveBeenCalledTimes(1)
+    await act(async () => root.unmount())
+  })
 
-    // 模拟官方选区浮层
-    const surface = document.createElement('div')
-    surface.setAttribute('data-text-interaction-surface', '')
-    const quoteBtn = document.createElement('button')
-    quoteBtn.className = 'official-quote-btn'
-    quoteBtn.textContent = '引用文本'
-    surface.append(quoteBtn)
-    document.body.append(surface)
-
-    const askTarget = vi.fn()
-    registerAskHandler('session-official', askTarget)
-
-    const detach = attachNativeAskButton(scope, 'session-official', translate('zh'))
-
-    // 选中文本
-    const p = scope.querySelector('p')!
-    const range = document.createRange()
-    range.selectNodeContents(p)
-    window.getSelection()!.removeAllRanges()
-    window.getSelection()!.addRange(range)
-
-    // 此时 surface 中应已自动融入 [旁问] 按钮，且稳定排在 [引用文本] 后面
-    const btwBtn = surface.querySelector<HTMLButtonElement>('.btw-native-ask-button')
-    expect(btwBtn).not.toBeNull()
-    expect(btwBtn?.textContent).toBe('旁问')
-    expect(quoteBtn.style.order).toBe('1')
-    expect(btwBtn?.style.order).toBe('2')
-    expect(quoteBtn.nextSibling).toBe(btwBtn)
-
-    // 模拟时序抖动（React 重建/重排按钮，将 quoteBtn 插到了后面）
-    surface.prepend(btwBtn!) // 故意搞乱顺序让 btwBtn 在前
-    expect(surface.firstElementChild).toBe(btwBtn)
-    // 触发 DOM 变更或 selectionchange
-    document.dispatchEvent(new Event('selectionchange'))
-    // 验证立即自动纠正顺序：quoteBtn 重新在前，btwBtn 紧随其后
-    expect(surface.firstElementChild).toBe(quoteBtn)
-    expect(quoteBtn.nextSibling).toBe(btwBtn)
-
-    // 点击该融入按钮
-    await act(async () => {
-      btwBtn?.click()
-    })
-
-    expect(askTarget).toHaveBeenCalledWith('待旁问的片段')
-    expect(surface.getAttribute('aria-hidden')).toBe('true')
-
-    detach()
-    surface.remove()
-    scope.remove()
+  it('does not clear selection when the session handler is absent', async () => {
+    const dismiss = vi.fn(), clearSelection = vi.fn()
+    const root = createRoot(container)
+    await act(async () => root.render(React.createElement(NativeBtwAskAction, {
+      sessionId: 'unmounted-session', dismiss, clearSelection,
+      readText: () => 'private text', t: translate('zh'),
+    })))
+    await act(async () => [...container.querySelectorAll('button')].find(item => item.textContent === '旁问')!.click())
+    expect(clearSelection).not.toHaveBeenCalled()
+    expect(dismiss).not.toHaveBeenCalled()
+    await act(async () => root.unmount())
   })
 })

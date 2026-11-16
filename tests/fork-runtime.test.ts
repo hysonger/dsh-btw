@@ -106,7 +106,7 @@ it('真实 fork 继承已完成上下文、独立回答并可取消，主任务�
   } finally { await ctx.fiber.dispose() }
 }, 15_000)
 
-it('真实宿主下旁问回传 send_message 只放行直接父会话并防二级子代理越权 "lead"', async () => {
+it('真实宿主下旁问 send_message 回传被一律拒绝：无论目标是其它 agent 还是父会话本身', async () => {
   const ctx = new Context()
   try {
     new MemoryWorkingDirectory(ctx)
@@ -125,17 +125,6 @@ it('真实宿主下旁问回传 send_message 只放行直接父会话并防二�
     await ctx.plugin(AgentLoop, { agents: [] }).await()
     await ctx.plugin(SubagentRuntime).await()
     await ctx.plugin(Fork, { providerName: 'fork' }).await()
-
-    ctx.provide('sessionQuery', {
-      observeSession: async (sessionId: string) => {
-        const agent = ctx.agents.get(sessionId as any)
-        const snapshot = agent ? ctx.sessionProjections.snapshot(agent.session, ['subagentCatalog' as any]) : undefined
-        return {
-          projections: snapshot,
-          [Symbol.dispose]() {},
-        }
-      },
-    })
 
     const subagents = ctx.subagents as any
     const isModernSubagent = typeof subagents.rootOf === 'function'
@@ -159,79 +148,37 @@ it('真实宿主下旁问回传 send_message 只放行直接父会话并防二�
       },
     })
 
-    const requests: GenerateOptions[] = []
-    let rootBtwStep = 0
-    let nestedBtwStep = 0
-    let releaseWorker!: () => void
-    const workerGate = new Promise<void>(resolve => { releaseWorker = resolve })
+    let btwStep = 0
     class ReplyAdapter extends LlmAdapter {
       async resolveModel(provider: string, model: string) { return { provider, id: model, name: model } }
       async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
-        requests.push(options)
-        const promptText = JSON.stringify(options.messages)
-        if (promptText.includes('worker 任务')) {
-          await Promise.race([
-            workerGate,
-            new Promise<void>((_resolve, reject) => {
-              if (options.signal?.aborted) { reject(new Error('worker aborted')); return }
-              options.signal?.addEventListener('abort', () => reject(new Error('worker aborted')), { once: true })
-            }),
-          ])
-          const text = 'worker 任务结束'
+        if (!JSON.stringify(options.messages).includes('模型尝试回传')) {
+          const text = '主任务回合完成'
           yield { type: 'block-start', index: 0, blockType: 'text' }
           yield { type: 'block-end', index: 0, block: { type: 'text', text } }
           yield { type: 'finish', reason: { kind: 'stop' } }
           return
         }
-        if (promptText.includes('根会话要求回传')) {
-          rootBtwStep++
-          if (rootBtwStep === 1) {
-            const c1 = ToolCallId('call-bad')
-            const badArgs = isModernSubagent ? { agent: 'other', message: '越权' } : { agent_id: 'other', message: '越权' }
-            yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-            yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: c1, name: 'send_message', arguments: JSON.stringify(badArgs) } }
-            yield { type: 'finish', reason: { kind: 'tool-calls' } }
-            return
-          }
-          if (rootBtwStep === 2) {
-            const c2 = ToolCallId('call-good')
-            const goodArgs = isModernSubagent ? { agent: 'lead', message: '根结论' } : { agent_id: 'btw-reply-root', message: '根结论' }
-            yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-            yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: c2, name: 'send_message', arguments: JSON.stringify(goodArgs) } }
-            yield { type: 'finish', reason: { kind: 'tool-calls' } }
-            return
-          }
-          const text = '已回传给根会话'
-          yield { type: 'block-start', index: 0, blockType: 'text' }
-          yield { type: 'block-end', index: 0, block: { type: 'text', text } }
-          yield { type: 'finish', reason: { kind: 'stop' } }
+        btwStep++
+        if (btwStep === 1) {
+          // 第一步：试图发给其它 agent——必须被拒。
+          const c1 = ToolCallId('call-bad')
+          const badArgs = isModernSubagent ? { agent: 'other', message: '越权' } : { agent_id: 'other', message: '越权' }
+          yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+          yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: c1, name: 'send_message', arguments: JSON.stringify(badArgs) } }
+          yield { type: 'finish', reason: { kind: 'tool-calls' } }
           return
         }
-        if (promptText.includes('二级子代理要求回传')) {
-          nestedBtwStep++
-          if (nestedBtwStep === 1) {
-            // 二级子代理里试图把答案发给 "lead"（祖父）必须被拒！
-            const c1 = ToolCallId('call-lead-escalate')
-            yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-            yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: c1, name: 'send_message', arguments: JSON.stringify({ agent: 'lead', message: '越权祖父' }) } }
-            yield { type: 'finish', reason: { kind: 'tool-calls' } }
-            return
-          }
-          if (nestedBtwStep === 2) {
-            // 发给直接父代理 'worker' 必须放行！
-            const c2 = ToolCallId('call-worker-ok')
-            yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-            yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: c2, name: 'send_message', arguments: JSON.stringify({ agent: 'worker', message: '直接父结论' }) } }
-            yield { type: 'finish', reason: { kind: 'tool-calls' } }
-            return
-          }
-          const text = '已回传给worker'
-          yield { type: 'block-start', index: 0, blockType: 'text' }
-          yield { type: 'block-end', index: 0, block: { type: 'text', text } }
-          yield { type: 'finish', reason: { kind: 'stop' } }
+        if (btwStep === 2) {
+          // 第二步：即使目标是直接父会话（'lead' / 父会话 id）——F-02 加固后同样必须被拒。
+          const c2 = ToolCallId('call-good')
+          const goodArgs = isModernSubagent ? { agent: 'lead', message: '根结论' } : { agent_id: 'btw-reply-root', message: '根结论' }
+          yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+          yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: c2, name: 'send_message', arguments: JSON.stringify(goodArgs) } }
+          yield { type: 'finish', reason: { kind: 'tool-calls' } }
           return
         }
-        const text = '普通回合完成'
+        const text = '回答只留在旁问气泡'
         yield { type: 'block-start', index: 0, blockType: 'text' }
         yield { type: 'block-end', index: 0, block: { type: 'text', text } }
         yield { type: 'finish', reason: { kind: 'stop' } }
@@ -247,40 +194,14 @@ it('真实宿主下旁问回传 send_message 只放行直接父会话并防二�
     const plugin = ctx.plugin(implementation)
     await plugin.await()
 
-    // 1. 根会话旁问回传验证
-    const resRoot = await ctx.commands.execute(parent, `/${RUN_COMMAND} ${JSON.stringify({ id: 'reply-root-1', question: '根会话要求回传' })}`, [], new AbortController().signal)
-    expect(resRoot?.result).toMatchObject({ kind: 'success', text: '已回传给根会话' })
+    const res = await ctx.commands.execute(parent, `/${RUN_COMMAND} ${JSON.stringify({ id: 'reply-root-1', question: '模型尝试回传' })}`, [], new AbortController().signal)
+    expect(res?.result).toMatchObject({ kind: 'success', text: '回答只留在旁问气泡' })
     await parent.whenIdle()
-    expect(delivered).toHaveLength(1)
-    expect(delivered[0]).toMatchObject({
-      target: isModernSubagent ? 'lead' : 'btw-reply-root',
-      message: '根结论',
-    })
-
-    // 2. 0.2.2-rc.2+ 二级子代理旁问防越权验证
-    if (isModernSubagent) {
-      const workerAct = await subagents.startActivation({
-        provider: 'fork',
-        name: 'worker',
-        label: 'worker',
-        parent,
-        prompt: [{ type: 'text', text: 'worker 任务' }],
-        signal: new AbortController().signal,
-        delivery: 'caller',
-      })
-      const workerAgent = ctx.agents.get(workerAct.childId)!
-      expect(workerAgent).toBeDefined()
-      const resNested = await ctx.commands.execute(workerAgent, `/${RUN_COMMAND} ${JSON.stringify({ id: 'reply-nested-1', question: '二级子代理要求回传' })}`, [], new AbortController().signal)
-      expect(resNested?.result).toMatchObject({ kind: 'success', text: '已回传给worker' })
-      // 只有直接发给 worker 的那一次被放行，发给 lead（祖父）被拦下
-      expect(delivered).toHaveLength(2)
-      expect(delivered[1]).toMatchObject({ target: 'worker', message: '直接父结论' })
-      expect(JSON.stringify([...workerAgent.inbox.nextStep, ...workerAgent.inbox.nextTurn, ...workerAgent.session.deriveMessages()])).toContain('直接父结论')
-      expect(JSON.stringify(parent.session.deriveMessages())).not.toContain('越权祖父')
-      releaseWorker()
-      await workerAct.result
-      await workerAct.dispose()
-    }
+    // 两次 send_message（越权目标与父会话目标）全部被护栏拦下，宿主投递函数从未执行。
+    expect(delivered).toHaveLength(0)
+    // 回传内容没有进入父会话上下文。
+    expect(JSON.stringify(parent.session.deriveMessages())).not.toContain('根结论')
+    expect(JSON.stringify(parent.session.deriveMessages())).not.toContain('越权')
 
     await plugin.dispose()
   } finally { await ctx.fiber.dispose() }

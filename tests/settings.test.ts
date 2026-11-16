@@ -82,7 +82,7 @@ it('volatile 字段到达插件时是 Cosmokit 引用对象，读值前会解包
 
 it('白名单在闸门里逐次生效：加入后放行，移除后立刻恢复拒绝', () => {
   let allowed: readonly string[] = []
-  const guard = createAnswerOnlyGuard(new Set(['owned']), undefined, () => allowed)
+  const guard = createAnswerOnlyGuard(() => allowed)
   const agent = { session: { header: { id: 'btw-child', parentSession: 'parent-session' } } }
   guard.own(agent)
 
@@ -97,28 +97,33 @@ it('白名单在闸门里逐次生效：加入后放行，移除后立刻恢复�
 
 it('白名单非空时拒绝文案列出放行工具，空白名单保持 1.1.1 原文', () => {
   const agent = { session: {} }
-  const strict = createAnswerOnlyGuard(new Set(['owned']), undefined, () => [])
+  const strict = createAnswerOnlyGuard(() => [])
   strict.own(agent)
   expect(strict({ agent, name: 'ops_bash', arguments: {} }))
     .toBe('BTW 仅允许文字回答，禁止执行任何工具。 / BTW allows text responses only; tool execution is strictly prohibited.')
 
-  const permissive = createAnswerOnlyGuard(new Set(['owned']), undefined, () => ['pele_draw', 'ops_bash'])
+  const permissive = createAnswerOnlyGuard(() => ['pele_draw', 'ops_bash'])
   permissive.own(agent)
   const message = permissive({ agent, name: 'read_file', arguments: {} })
   expect(message).toContain('pele_draw, ops_bash')
   expect(message).toContain('白名单工具')
 })
 
-it('白名单写进 send_message 也不能让旁问把答案发给别的 agent', () => {
-  const guard = createAnswerOnlyGuard(new Set(['owned']), undefined, () => ['send_message'])
+it('白名单写进 send_message 也不能放行回传（F-02 加固）', () => {
+  const guard = createAnswerOnlyGuard(() => ['send_message'])
   const agent = { session: { header: { id: 'btw-child', parentSession: 'parent-session' } } }
   guard.own(agent)
-  // 回传工具的归属校验优先于白名单，配置无法绕过「只能交回自己的主会话」。
-  expect(guard({ agent, name: 'send_message', arguments: { agent_id: 'someone-else' } })).toContain('禁止执行任何工具')
-  expect(guard({ agent, name: 'send_message', arguments: { agent_id: 'parent-session' } })).toBeUndefined()
+  // 执行层无条件拒绝回传：目标是父会话或其它 agent 都一样。
+  expect(guard({ agent, name: 'send_message', arguments: { agent_id: 'someone-else' } })).toContain('禁止向主会话或任何其它代理回传消息')
+  expect(guard({ agent, name: 'send_message', arguments: { agent_id: 'parent-session' } })).toContain('禁止向主会话或任何其它代理回传消息')
+})
+
+it('配置层直接丢弃白名单里的 send_message，提示词不会把它列为放行工具', () => {
+  expect(readSettings({ allowedTools: ['send_message', 'pele_draw'] }).allowedTools).toEqual(['pele_draw'])
+  expect(readSettings({ allowedTools: [' send_message '] }).allowedTools).toEqual([])
 })
 
 it('白名单只作用于被认领的旁问代理，主任务工具不受影响', () => {
-  const guard = createAnswerOnlyGuard(new Set(['owned']), undefined, () => ['pele_draw'])
+  const guard = createAnswerOnlyGuard(() => ['pele_draw'])
   expect(guard({ agent: { session: {} }, name: 'ops_bash', arguments: {} })).toBeUndefined()
 })

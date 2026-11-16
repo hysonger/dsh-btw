@@ -123,7 +123,7 @@ describe('双版本（新宿主 vs 老宿主）全链路 1:1 体验一致性验�
     it('老宿主（insertReference 链接节点）：以正文为标签插入原生链接节点，输入框上方干净无悬浮条', async () => {
       let insertedRef: any = null
       const mockLegacyInput = {
-        state: { getSnapshot: () => ({ draft: '既有用户草稿', phase: 'plain' }) },
+        state: { getSnapshot: () => ({ draft: '既有用户草稿', draftRev: 1, phase: 'plain' }) },
         setDraft: vi.fn(),
         insertReference: vi.fn((ref, _span) => {
           insertedRef = ref

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.11-hardened.1] - 2026-11-16
+
+Personal fork of upstream release v1.3.11; support is restricted to DSH 0.2.2-rc.3.
+
+- Deny all model-initiated parent messages, including send_message whitelist/prompt attempts; identify owned children without display-label collisions.
+- Enforce image/HTML denial in the plugin-owned renderer; remove private Harness Client module imports and global quote-toolbar DOM injection.
+- Require unlocked atomic draft insertion, session-scoped actions and cleanup of settings subscriptions/timers.
+- Document formula-source display, fail-closed quote jump-back and child-session persistence limits.
+- Pin runtime schemastery, update the vulnerable development test runner, disable upstream npm publishing, and maintain this fork independently of my-dsh-plugins.
+
 ## [1.3.11] - 2026-11-14
 
 ### Host Compatibility

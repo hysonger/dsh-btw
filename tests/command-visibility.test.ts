@@ -42,7 +42,7 @@ it.each(runtimeRoots)('真实 RPC 目录隐藏内部命令且执行与卸载正�
   ctx.provide('tools', { guard: () => () => {} })
   ctx.provide('subagents', {
     getProvider: () => ({ inheritsParentContext: true, capabilities: { agentOptions: true, agentPreset: false, outputSchema: true, depthLimit: true } }),
-    start: async () => ({ result: Promise.resolve({ stopReason: 'completed', output: [{ type: 'text', text: '回答' }] }), dispose: async () => {} }),
+    startActivation: async () => ({ result: Promise.resolve({ stopReason: 'completed', output: [{ type: 'text', text: '回答' }] }), dispose: async () => {} }),
   })
   const agent = { session: { header: { id: 'main' }, append: vi.fn() } } as unknown as Agent
   registry.lookups.register('agent', {

@@ -1,9 +1,8 @@
 import React from 'react';
-import { type HostMarkdownLabels } from './host-markdown';
-/** 旁问不加载远程图片。代码块和行内代码里的写法保持原样。 */
-export declare function neutralizeMarkdownImages(source: string, emptyAlt?: string): string;
-export declare function AnswerMarkdown({ text, labels, imageLabel }: {
+import type { HostMarkdownLabels } from './host-markdown';
+/** Render untrusted model output with our own image/HTML policy, never the host renderer. */
+export declare function AnswerMarkdown({ text, labels, copyError }: {
     text: string;
     labels: HostMarkdownLabels;
-    imageLabel: string;
+    copyError: string;
 }): React.JSX.Element;

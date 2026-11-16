@@ -135,7 +135,7 @@ describe('老版本宿主（无官方 quotes 插件与 insertQuote）1:1 体验�
     expect(focus).toHaveBeenCalledTimes(1)
   })
 
-  it('极端老版本（既无 insertQuote 也无 insertReference）才安全兜底为 Markdown blockquote setDraft', async () => {
+  it('缺少原子引用接口时安全停止并提示，绝不使用 setDraft 拍平旧草稿', async () => {
     const focus = vi.fn()
     const mockBareInput = {
       state: {
@@ -175,7 +175,8 @@ describe('老版本宿主（无官方 quotes 插件与 insertQuote）1:1 体验�
       quoteBtn?.click()
     })
 
-    expect(mockBareInput.setDraft).toHaveBeenCalledWith('旧草稿\n\n> 老版本宿主气泡里的待选文字\n\n')
-    expect(focus).toHaveBeenCalledTimes(1)
+    expect(mockBareInput.setDraft).not.toHaveBeenCalled()
+    expect(focus).not.toHaveBeenCalled()
+    expect(mount.querySelector('[role="alert"]')?.textContent).toContain(translate()('error.composerMissing'))
   })
 })

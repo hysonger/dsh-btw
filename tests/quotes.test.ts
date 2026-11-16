@@ -206,6 +206,7 @@ describe('formatQuotesWithDraft 拼装输出', () => {
     const store = new QuoteStore()
     const rowEl = document.createElement('div')
     document.body.append(rowEl)
+    rowEl.textContent = '第一句引用 第二句引用'
 
     const q1 = store.addQuote('s1', {
       text: '第一句引用',

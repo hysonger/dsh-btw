@@ -1,7 +1,12 @@
 // 跟随宿主主题令牌，避免系统深色偏好覆盖 DSH 手动选择的外观。
 export const CSS = `
 .btw-reference-preview{display:block;margin-top:6px;max-height:3.2em;overflow:hidden;overflow-wrap:anywhere;line-height:1.6;color:var(--dsw-alias-label-primary)}
-.btw-selection-dialog{position:fixed;box-sizing:border-box;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
+.btw-modal-backdrop{position:fixed;inset:0;z-index:1000;width:100vw;max-width:none;height:100vh;max-height:none;margin:0;padding:0;border:0;background:color-mix(in srgb,var(--dsw-alias-label-primary) 35%,transparent)}
+.btw-modal-backdrop::backdrop{background:transparent}
+.btw-native-actions{display:inline-flex;gap:6px}
+.btw-selection-dialog{position:fixed;z-index:1001;top:50%;left:50%;transform:translate(-50%,-50%);width:520px;max-height:90vh;overflow:auto;padding:20px;border-radius:12px;box-shadow:var(--dsw-elevation-panel);box-sizing:border-box;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
+.btw-selection-dialog header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.btw-button{font:inherit;color:inherit;background:var(--dsw-alias-button-floating-fill);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:6px 12px;cursor:pointer}.btw-button:disabled{opacity:.5;cursor:default}.btw-button-primary{background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}.btw-code{position:relative}.btw-code>button{float:right}.btw-code pre{overflow:auto}
 .btw-selection-menu{position:fixed;display:inline-flex;align-items:center;gap:6px;margin:0;width:max-content;max-width:calc(100vw - 16px);padding:0;inset:auto;border:none;background:transparent;box-shadow:none;pointer-events:auto;z-index:1000}
 .btw-selection-menu button{display:inline-flex;align-items:center;justify-content:center;corner-shape:round;background:var(--dsw-alias-button-floating-fill);border:1px solid var(--dsw-alias-border-l3,rgba(0,0,0,0.1));box-shadow:var(--dsw-elevation-panel);color:var(--dsw-alias-label-primary);font:var(--dsw-font-xs-13);cursor:pointer;border-radius:999px;padding:5px 12px;min-height:28px;white-space:nowrap;user-select:none;transition:background-color 120ms ease}
 .btw-selection-menu button:hover{background:var(--dsw-alias-button-floating-hover)}
@@ -68,9 +73,6 @@ export const CSS = `
 .btw-quote-text{min-width:0;padding:0;border:none;outline:none;background:none;color:inherit;font:inherit;line-height:inherit;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btw-quote-popover-text{display:block;padding:8px 10px;color:var(--dsw-alias-label-primary);font-size:14px;line-height:20px;overflow-wrap:anywhere;white-space:pre-wrap;max-width:min(520px,calc(100vw - 32px))}
 .btw-official-quote-group{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0 0 6px 0;padding:0;max-width:100%}
-[data-text-interaction-surface]{display:inline-flex!important;flex-direction:row!important;align-items:center!important;gap:6px!important}
-[data-text-interaction-surface] button:not(.btw-native-ask-button){order:1!important;margin:0!important}
-[data-text-interaction-surface] button.btw-native-ask-button{order:2!important;margin:0!important}
 .btw-selection-menu button:first-child{order:1!important}
 .btw-selection-menu button:last-child{order:2!important}
 `

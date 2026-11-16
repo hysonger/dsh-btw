@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "BTW",
-    "description": "Responde según el contexto actual en una burbuja independiente, sin ejecutar herramientas.",
-    "detail": "README.es.md"
+    "title": "BTW (hardened)",
+    "description": "Personal hardened fork: tools denied by default, no model-initiated parent messages, no rendered images or HTML.",
+    "detail": "HARDENING.md"
   }
 }

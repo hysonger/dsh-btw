@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button } from './ui'
 import { MAX_PROMPT_LENGTH, MAX_TOOL_NAME_LENGTH } from '../limits'
 import { clampPrompt, formatToolList, parseToolList, type BtwSettingsScope } from './settings-scope'
 

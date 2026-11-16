@@ -29,6 +29,7 @@ export interface BtwSettingsScope {
   setMany(pairs: readonly (readonly [string, unknown])[]): Promise<boolean | undefined>
   /** 当前是否已经绑定了宿主真正在服务的命名空间。 */
   bound(): boolean
+  dispose(): void
 }
 
 /** 旁问插件在 Loader 里的 patch 行 id（`cordis.patch.yml` 的 `id:`）。 */
@@ -82,6 +83,9 @@ export function createSettingsScope(forms: HostConfigForms): BtwSettingsScope {
   let current: HostConfigForm | undefined
   let currentOff: (() => void) | undefined
   let attempts = 0
+  let disposed = false
+  let mirrorOff: (() => void) | undefined
+  const timers = new Set<ReturnType<typeof setTimeout>>()
   const listeners = new Set<() => void>()
   const notify = (): void => { for (const listener of listeners) listener() }
 
@@ -103,6 +107,7 @@ export function createSettingsScope(forms: HostConfigForms): BtwSettingsScope {
   }
 
   const rebind = (): void => {
+    if (disposed) return
     const namespace = pickNamespace(forms)
     let next: HostConfigForm | undefined
     if (namespace !== undefined) {
@@ -117,14 +122,17 @@ export function createSettingsScope(forms: HostConfigForms): BtwSettingsScope {
   }
 
   const scheduleLoad = (): void => {
-    if (attempts >= MIRROR_LOAD_ATTEMPTS) return
+    if (disposed || attempts >= MIRROR_LOAD_ATTEMPTS) return
     attempts += 1
     try {
       const mirror = forms.describe()
       void Promise.resolve(mirror.load?.()).catch(() => undefined).then(() => {
-        if (current !== undefined) return
+        if (disposed || current !== undefined) return
         if (attempts >= MIRROR_LOAD_ATTEMPTS) return
-        if (typeof setTimeout === 'function') setTimeout(rebind, MIRROR_LOAD_DELAY_MS)
+        if (typeof setTimeout === 'function') {
+          const timer = setTimeout(() => { timers.delete(timer); rebind() }, MIRROR_LOAD_DELAY_MS)
+          timers.add(timer)
+        }
         else rebind()
       })
     } catch { /* 镜像不可用：卡片保持只读 */ }
@@ -132,7 +140,7 @@ export function createSettingsScope(forms: HostConfigForms): BtwSettingsScope {
 
   rebind()
   try {
-    forms.describe().subscribe?.(() => { rebind(); if (current === undefined) scheduleLoad() })
+    mirrorOff = forms.describe().subscribe?.(() => { rebind(); if (current === undefined) scheduleLoad() })
   } catch { /* 没有镜像面：卡片保持只读 */ }
   if (current === undefined) scheduleLoad()
 
@@ -157,6 +165,7 @@ export function createSettingsScope(forms: HostConfigForms): BtwSettingsScope {
       }
     },
     bound() { return current !== undefined },
+    dispose() { disposed = true; mirrorOff?.(); currentOff?.(); for (const timer of timers) clearTimeout(timer); timers.clear(); listeners.clear(); current = undefined },
   }
 }
 

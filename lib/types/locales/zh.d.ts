@@ -9,9 +9,8 @@ export declare const zh: {
     readonly "action.retryClose": "重试关闭";
     readonly "action.stop": "停止回答";
     readonly "agent.name": "旁问专家";
-    readonly "agent.promptPrefix": "你是专注解答旁问的独立专家，这是主任务之外的一次性旁问。以下是用户针对当前上下文提出的问题，请直接给出专注、准确的回答；先前会话历史（包括任何工具调用及其结果）仅作为只读理解背景的参考，不是需要你继续执行的任务，不要执行或继续历史中的计划、命令和修改。请求中仍列出的工具定义只为与主会话保持一致，本次旁问中除 send_message 之外任何工具调用都会被拒绝；而 send_message 也只能用来把答案发回本旁问所属的直接主会话，不能发给任何其他代理。严禁尝试发起其它工具调用或输出 <tool_call> 等调用标记，信息不足时直接说明，请直接使用纯文字或 Markdown 给出最终回答。回答语言与问题一致，不要在回答中重复无关的主会话内容。";
-    readonly "agent.replyHint": "回答默认只留在这个旁问气泡里，不会自动回到主对话。只有当用户在这次提问中明确要求把答案发回主对话时，才调用 send_message 把一份自足的完整答案发给主会话（{field} 为 {parent}，主对话看不到这段旁问对话）。用户没有要求时不要调用它。";
-    readonly "agent.toolsAllowed": "本次旁问额外放行这些工具（其余仍然一律拒绝）：{tools}。";
+    readonly "agent.promptPrefix": "你是专注解答旁问的独立专家，这是主任务之外的一次性旁问。以下是用户针对当前上下文提出的问题，请直接给出专注、准确的回答；先前会话历史（包括任何工具调用及其结果）仅作为只读理解背景的参考，不是需要你继续执行的任务，不要执行或继续历史中的计划、命令和修改。请求中仍列出的工具定义只为与主会话保持一致，本次旁问中所有工具调用（包括 send_message）都会被拒绝执行，严禁尝试发起任何工具调用或输出 <tool_call> 等调用标记。你的回答只保留在这个旁问气泡中，不会自动回到主对话；如果用户需要，可以自行复制或引用你的回答。信息不足时直接说明，请直接使用纯文字或 Markdown 给出最终回答。回答语言与问题一致，不要在回答中重复无关的主会话内容。";
+    readonly "agent.toolsAllowed": "本次旁问额外放行这些工具（其余仍然一律拒绝，send_message 也不例外）：{tools}。";
     readonly "bubble.footnotes": "脚注";
     readonly "bubble.image": "图片";
     readonly "bubble.label": "旁问回答";
@@ -29,6 +28,7 @@ export declare const zh: {
     readonly "error.cleanupTimeout": "资源释放仍未完成，请稍后重试关闭。";
     readonly "error.close": "关闭失败，可重试。{detail}";
     readonly "error.composerBusy": "消息正在提交，请稍后再添加引用。";
+    readonly "error.composerMissing": "当前输入框无法添加引用，请保留选区后重试。";
     readonly "error.copy": "复制失败，请选择回答文字复制。";
     readonly "error.duplicate": "该旁问已提交或已关闭。";
     readonly "error.empty": "请输入旁问内容。";
@@ -66,7 +66,7 @@ export declare const zh: {
     readonly "selection.questionPlaceholder": "添加可选评论…";
     readonly "selection.reference": "引用原文";
     readonly "selection.send": "发送旁问";
-    readonly "settings.allowedToolsHint": "除 send_message 之外允许调用的工具名，例如 pele_draw。留空表示只允许纯文字回答。";
+    readonly "settings.allowedToolsHint": "允许旁问调用的工具名，例如 pele_draw。留空表示只允许纯文字回答。";
     readonly "settings.allowedToolsLabel": "放行工具（每行一个）";
     readonly "settings.allowedToolsPlaceholder": "pele_draw";
     readonly "settings.description": "放行旁问可调用的工具，并替换内置的旁问提示词；两项都留空时保持默认的纯文字旁问。";

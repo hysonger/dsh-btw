@@ -1,5 +1,4 @@
 import React from 'react'
-import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 
 /**
  * 将文本格式化为对齐官方规范的 Markdown blockquote 格式。
@@ -111,13 +110,8 @@ function OfficialQuoteIcon({ className }: { className?: string }): React.JSX.Ele
  * 引用文本渲染组件：优先复用宿主原语 QuotePreview；老版本缺少时降级渲染为 1:1 官方链接样式并支持 HoverCard 预览全文。
  */
 export function OfficialQuotePreview({ text }: { text: string }): React.JSX.Element {
-  const HostQuotePreview = (primitives as Record<string, unknown>).QuotePreview as React.ComponentType<{ text: string }> | undefined
-  if (typeof HostQuotePreview === 'function') {
-    return <HostQuotePreview text={text} />
-  }
-
   const textRef = React.useRef<HTMLSpanElement>(null)
-  const [isTruncated, setIsTruncated] = React.useState(false)
+  const [, setIsTruncated] = React.useState(false)
 
   React.useLayoutEffect(() => {
     const el = textRef.current
@@ -142,34 +136,6 @@ export function OfficialQuotePreview({ text }: { text: string }): React.JSX.Elem
       </span>
     </span>
   )
-
-  const HostHoverCard = (primitives as Record<string, unknown>).HoverCard as React.ComponentType<{
-    inline?: boolean
-    grouped?: boolean
-    fitContent?: boolean
-    openDelayMs?: number
-    disabled?: boolean
-    anchor: React.ReactNode
-    content: React.ReactNode
-  }> | undefined
-
-  if (typeof HostHoverCard === 'function') {
-    return (
-      <HostHoverCard
-        inline
-        grouped
-        fitContent
-        openDelayMs={0}
-        disabled={!isTruncated}
-        anchor={anchor}
-        content={
-          <span className="btw-quote-popover-text" data-quote-popover="" aria-hidden="true">
-            {text}
-          </span>
-        }
-      />
-    )
-  }
 
   return anchor
 }

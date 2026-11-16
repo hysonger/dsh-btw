@@ -1,12 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Modal } from './ui'
 import type { BubbleStore } from './bubbles'
 import type { BtwTranslate } from '../locales'
 import { MAX_QUESTION_LENGTH, MAX_REFERENCE_LENGTH } from '../shared'
 import { captureSelectionDetails, type CapturedSelectionDetails } from './selection'
-import { formatAsBlockquote } from './official-quote'
 import { insertQuoteReference } from './trigger-source'
-import { registerAskHandler, attachNativeAskButton } from './NativeBtwAsk'
+import { registerAskHandler } from './NativeBtwAsk'
 
 interface DraftInput {
   state: { getSnapshot(): { draft: string; draftRev?: number; phase: string; occurrences?: readonly { source: string; ref: string }[] } }
@@ -33,8 +32,9 @@ export function SelectionAsk(props: {
   sessionId: string
   t: BtwTranslate
   input?: DraftInput
+  nativeSelection?: boolean
 }): React.JSX.Element {
-  const { store, sessionId, t, input } = props
+  const { store, sessionId, t, input, nativeSelection } = props
   const anchor = useRef<HTMLSpanElement>(null)
   const menu = useRef<HTMLDivElement | null>(null)
   const previousFocus = useRef<HTMLElement | null>(null)
@@ -70,22 +70,13 @@ export function SelectionAsk(props: {
     mounted.current = true
     const scope = anchor.current?.closest<HTMLElement>('[data-conversation-scroll]')
     // 不猜测第三方布局；没有正文所属容器时仅保留 /btw 入口。
-    if (!scope) return () => { mounted.current = false }
-
-    // 动态融合：当宿主展示官方选区浮层时，并排融入「旁问」按钮
-    const detachNative = attachNativeAskButton(scope, sessionId, t)
+    if (!scope || nativeSelection) return () => { mounted.current = false }
 
     const open = (event: MouseEvent | KeyboardEvent) => {
       // 只响应选区按键，避免 Escape 的 keyup 撤销刚发生的关闭。
       if (event instanceof KeyboardEvent && (event.isComposing || !(event.key === 'Shift' || (event.shiftKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key))))) return
       if (draft?.form || (event instanceof MouseEvent && event.button !== 0)) return
       if (event.defaultPrevented || !(event.target instanceof Element)) return
-
-      // 若宿主已唤起原生选区浮层并融入了旁问按钮，自建浮层不重复弹出
-      const nativeSurface = scope.ownerDocument.querySelector<HTMLElement>('[data-text-interaction-surface]:not([aria-hidden="true"])')
-      if (nativeSurface && nativeSurface.querySelector('.btw-native-ask-button')) {
-        return
-      }
 
       const details = captureSelectionDetails(scope, event.target)
       if (!details) return
@@ -107,11 +98,10 @@ export function SelectionAsk(props: {
     scope.addEventListener('keyup', open)
     return () => {
       mounted.current = false
-      detachNative()
       scope.removeEventListener('mouseup', open)
       scope.removeEventListener('keyup', open)
     }
-  }, [sessionId, draft?.form])
+  }, [sessionId, draft?.form, nativeSelection])
 
   useLayoutEffect(() => {
     const element = menu.current
@@ -191,6 +181,7 @@ export function SelectionAsk(props: {
   const add = () => {
     if (!draft) return
     try {
+      if (input && input.state.getSnapshot().phase !== 'plain') throw new Error(t('error.composerBusy'))
       let inserted = false
 
       // 1. 新宿主：优先调用原生 insertQuote，呈现官方交互式链接 QuoteNode
@@ -215,25 +206,14 @@ export function SelectionAsk(props: {
         } catch {}
       }
 
-      // 3. 最终兜底：纯文本模式下直接追加 Markdown blockquote
-      if (!inserted && input) {
-        const quoteMarkdown = formatAsBlockquote(draft.reference)
-        const currentDraft = input.state.getSnapshot().draft ?? ''
-        const nextDraft = currentDraft.trim()
-          ? `${currentDraft.trimEnd()}\n\n${quoteMarkdown}\n\n`
-          : `${quoteMarkdown}\n\n`
-        input.setDraft(nextDraft)
-      }
+      // Never bypass a rejected structured insertion with setDraft.
+      if (!inserted) throw new Error(t('error.composerMissing' as never))
 
       input?.focus?.()
       setDraft(undefined)
     } catch (issue) {
       const msg = issue instanceof Error ? issue.message : String(issue)
-      if (input?.notify) {
-        input.notify('error', msg)
-      } else {
-        setError(msg)
-      }
+      setError(msg)
     }
   }
 
@@ -250,6 +230,7 @@ export function SelectionAsk(props: {
         >
           <button type="button" onClick={add}>{t('selection.add')}</button>
           <button type="button" onClick={() => setDraft({ ...draft, form: true })}>{t('selection.btw')}</button>
+          {error && <span className="btw-error" role="alert">{error}</span>}
         </div>
       )}
       {draft?.form && (
@@ -296,7 +277,6 @@ export function SelectionAsk(props: {
                 disabled={busy}
                 maxLength={MAX_QUESTION_LENGTH}
                 placeholder={t('selection.questionPlaceholder')}
-                autoFocus
                 onChange={event => setQuestion(event.target.value)}
                 onKeyDown={event => {
                   if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {

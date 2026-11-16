@@ -8,6 +8,7 @@ export declare function registerAskHandler(sessionId: string, handler: OpenAskHa
 /**
  * 触发指定会话打开旁问弹窗。
  */
+export declare function hasAskHandler(sessionId: string): boolean;
 export declare function triggerAskModal(sessionId: string, text: string): boolean;
 /**
  * 安全向 uiConversation.interactions 注册交互项（避免重复注册已存在的 ID 抛错）。
@@ -20,11 +21,6 @@ export declare function safeRegisterInteraction(interactions: {
     id: string;
     onInteraction: (request: any) => void;
 }): (() => void) | undefined;
-/**
- * 监听并向宿主官方选区浮层（[data-text-interaction-surface]）动态融入「旁问」按钮。
- * 当宿主启用了官方 text-interaction 浮层时，并排呈现 [引用文本] [旁问]，绝不丢失旁问入口。
- */
-export declare function attachNativeAskButton(scope: HTMLElement, sessionId: string, t: BtwTranslate): () => void;
 export interface NativeBtwAskActionProps {
     sessionId?: string;
     dismiss: () => void;
@@ -32,6 +28,9 @@ export interface NativeBtwAskActionProps {
     clearSelection: () => void;
     useSession?: (selector: (session: any) => any) => any;
     t: BtwTranslate;
+    inputActions?: {
+        insertQuote(text: string): boolean;
+    };
 }
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface SlotMap {
@@ -45,5 +44,5 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
  * 接入官方 conversation.chat.text-interaction 插槽的原生「旁问」按钮。
  * 当用户在正文划选文本时，随官方选区工具栏原生渲染。
  */
-export declare function NativeBtwAskAction({ sessionId, dismiss, readText, clearSelection, useSession, t, }: NativeBtwAskActionProps): React.JSX.Element | null;
+export declare function NativeBtwAskAction({ sessionId, dismiss, readText, clearSelection, useSession, inputActions, t, }: NativeBtwAskActionProps): React.JSX.Element | null;
 export {};

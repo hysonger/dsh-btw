@@ -155,7 +155,8 @@ export function formatQuotesWithDraft(draft: string, quotes: readonly QuotedRefe
 
 /** 滚动并高亮原文锚点，DOM 节点丢失时尝试降级寻找轮次容器 */
 export function jumpToQuote(quote: QuotedReference, scope?: HTMLElement | null): boolean {
-  const root = scope ?? document
+  if (!scope) return false
+  const root = scope
   let target = quote.anchorId ? root.querySelector(`[data-btw-anchor~="${quote.anchorId}"]`) : null
 
   // 降级：如果虚拟滚动列表或重新渲染导致 data-btw-anchor 属性丢失，尝试匹配轮次
@@ -183,7 +184,7 @@ export function jumpToQuote(quote: QuotedReference, scope?: HTMLElement | null):
     }
   }
 
-  if (!target) return false
+  if (!target || !target.textContent?.includes(quote.text)) return false
 
   target.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
   target.classList.add('btw-anchor-highlight')
